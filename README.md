@@ -7,7 +7,7 @@
   各个代码文件存储在独立的模块中：
 
 - **/preprocessing/**：用于预处理数据集的函数。在进行实验之前需要执行这些脚本。
-- **/baselines/**：我们实现的典型的基线模型，用于与提出的模型进行比较。这些方法包括**DeepMove**、**LLM-Mob**、**MHSA**、**LSTM(-attn)** 、 **Markov**和**Mobtcast**。
+- **/models/**：我们实现的典型的基线模型，用于与提出的模型进行比较。这些方法包括**DeepMove**、**LLM-Mob**、**MHSA**、**LSTM(-attn)** 、 **Markov**和**Mobtcast**。
 - **/utils/**：辅助函数。
 
 ---
@@ -34,7 +34,7 @@
 
 ---
 
-## 在baselines上的实现
+## 在models上的实现
 
 ### 1.预处理数据
 
@@ -53,17 +53,17 @@
 
 - **MHSA**
 
-  所需要的数据文件同**Markov、LSTM(-attn)、Mobtcast**，在`baselines/MHSA`目录下创建一个名为`data`的新文件夹，并将`data`路径下`geolife.py`和`foursquare.py`所生成的数据文件复制粘贴进去即可。
+  所需要的数据文件同**Markov、LSTM(-attn)、Mobtcast**，在`models/MHSA`目录下创建一个名为`data`的新文件夹，并将`data`路径下`geolife.py`和`foursquare.py`所生成的数据文件复制粘贴进去即可。
 
 - **LLM-Mob**
 
-  所需要的数据文件已经存放在`baselines/LLM-Mob/data`路径下。
+  所需要的数据文件已经存放在`models/LLM-Mob/data`路径下。
 
 - **DeepMove**
 
-  所需要的数据文件已经存放在`baselines/DeepMove/data`路径下。数据文件可通过`preprocessing`路径下的`sparse_traces_foursquare.py`和`sparse_traces_geolife.py`文件获得，注意`sparse_traces_foursquare.py`文件需要传入`--city`参数。
+  所需要的数据文件已经存放在`models/DeepMove/data`路径下。数据文件可通过`preprocessing`路径下的`sparse_traces_foursquare.py`和`sparse_traces_geolife.py`文件获得，注意`sparse_traces_foursquare.py`文件需要传入`--city`参数。
 
-### 2.各baseline上的实现
+### 2.各model上的实现
 
 #### Markov / Mobtcast 模型
 
