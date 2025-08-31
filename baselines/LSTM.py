@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F 
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -18,8 +18,8 @@ try:
     project_root_dir = os.path.abspath(os.path.join(current_script_dir, '..'))
     if project_root_dir not in sys.path:
         sys.path.insert(0, project_root_dir)
-    from utils.dataloader import sp_loc_dataset, collate_fn 
-    from utils.utils import setup_seed 
+    from utils.dataloader import sp_loc_dataset, collate_fn
+    from utils.utils import setup_seed
 except ImportError as e:
     print(f"导入模块错误: {e}")
     sys.exit(1)
@@ -41,7 +41,7 @@ class TargetAttention(nn.Module):
 
 
 class LSTMModel(nn.Module):
-    def __init__(self, vocab_size, embed_dims, hidden_size, num_layers, dropout_rate, device, 
+    def __init__(self, vocab_size, embed_dims, hidden_size, num_layers, dropout_rate, device,
                  num_users, max_time_diff, bidirectional=False, use_attention=False):
         super(LSTMModel, self).__init__()
         self.device = device
@@ -56,18 +56,18 @@ class LSTMModel(nn.Module):
         self.user_embedding = nn.Embedding(num_users, embed_dims['user'])
 
         lstm_input_dim = embed_dims['loc'] + embed_dims['time'] + embed_dims['weekday'] + embed_dims['diff']
-        
+
         self.lstm = nn.LSTM(
             lstm_input_dim, hidden_size, num_layers,
             batch_first=True, dropout=dropout_rate if num_layers > 1 else 0,
             bidirectional=bidirectional
         )
-        
+
         self.lstm_output_dim = hidden_size * 2 if bidirectional else hidden_size
 
         if use_attention:
             self.attention = TargetAttention(self.lstm_output_dim)
-            self.fc_input_dim = self.lstm_output_dim * 2 + embed_dims['user'] 
+            self.fc_input_dim = self.lstm_output_dim * 2 + embed_dims['user']
         else:
             self.fc_input_dim = self.lstm_output_dim + embed_dims['user']
 
@@ -79,7 +79,7 @@ class LSTMModel(nn.Module):
         time_embed = self.time_embedding(x_time)
         weekday_embed = self.weekday_embedding(x_weekday)
         diff_embed = self.diff_embedding(x_diff)
-        
+
         # --- USER ID 修正 ---
         # x_user 是一个序列，我们只取第一个时间步的 user_id (因为它们都相同)
         user_id_tensor = x_user[:, 0]
@@ -95,7 +95,7 @@ class LSTMModel(nn.Module):
             c_0 = torch.zeros(self.lstm.num_layers * num_directions, batch_size, self.lstm.hidden_size).to(self.device)
 
         lstm_out, (hidden, cell) = self.lstm(combined_embed, (h_0, c_0))
-        
+
         if self.use_attention:
             query = lstm_out[:, -1, :]
             attn_context, _ = self.attention(lstm_out, query)
@@ -103,7 +103,7 @@ class LSTMModel(nn.Module):
         else:
             processed_representation = lstm_out[:, -1, :]
 
-        processed_representation = self.dropout_layer(F.relu(processed_representation)) 
+        processed_representation = self.dropout_layer(F.relu(processed_representation))
         final_features = torch.cat([processed_representation, user_embed], dim=1)
         out = self.fc(final_features)
         return out, hidden, cell
@@ -111,12 +111,12 @@ class LSTMModel(nn.Module):
 
 class LSTM_Predictor:
     def __init__(self, loc_vocab_size, embed_dims, hidden_size, num_layers, dropout_rate,
-                 learning_rate, epochs, device, num_users, max_time_diff, patience=10, 
-                 bidirectional_lstm=False, use_attention=False, 
+                 learning_rate, epochs, device, num_users, max_time_diff, patience=10,
+                 bidirectional_lstm=False, use_attention=False,
                  lr_scheduler_patience=2, lr_scheduler_factor=0.5, gradient_clip_value=1.0,
-                 weight_decay=1e-5): 
-        
-        self.loc_vocab_size = loc_vocab_size 
+                 weight_decay=1e-5):
+
+        self.loc_vocab_size = loc_vocab_size
         self.embed_dims = embed_dims
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -124,24 +124,24 @@ class LSTM_Predictor:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.device = device
-        self.patience = patience 
+        self.patience = patience
         self.gradient_clip_value = gradient_clip_value
         self.num_users = num_users
-        self.max_time_diff = max_time_diff 
+        self.max_time_diff = max_time_diff
 
         self.model = LSTMModel(
             self.loc_vocab_size, self.embed_dims, self.hidden_size,
             self.num_layers, self.dropout_rate, self.device,
-            self.num_users, self.max_time_diff, 
+            self.num_users, self.max_time_diff,
             bidirectional=bidirectional_lstm,
-            use_attention=use_attention 
+            use_attention=use_attention
         ).to(self.device)
-        
-        self.criterion = nn.CrossEntropyLoss() 
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=weight_decay) 
-        
+
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=weight_decay)
+
         self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=lr_scheduler_factor, 
+            self.optimizer, mode='min', factor=lr_scheduler_factor,
             patience=lr_scheduler_patience
         )
 
@@ -149,7 +149,7 @@ class LSTM_Predictor:
         self.best_val_loss = float('inf')
         print(f"LSTM_Predictor 初始化: loc_vocab_size={loc_vocab_size}, embed_dims={embed_dims}, "
               f"hidden_size={hidden_size}, num_layers={num_layers}, dropout={dropout_rate}, "
-              f"lr={learning_rate}, weight_decay={weight_decay}, epochs={epochs}, bidirectional={bidirectional_lstm}, attention={use_attention}, " 
+              f"lr={learning_rate}, weight_decay={weight_decay}, epochs={epochs}, bidirectional={bidirectional_lstm}, attention={use_attention}, "
               f"num_users={num_users}, max_time_diff_param_for_model={max_time_diff} (Embedding size will be this + 1)")
         print(f"模型将运行在: {self.device}")
 
@@ -172,7 +172,7 @@ class LSTM_Predictor:
             best_path = checkpoint_file_path.replace('.pth', '_best.pth')
             if os.path.exists(best_path): actual_path_to_load = best_path
             else: print(f"未找到最佳检查点 {best_path}，尝试加载常规检查点。")
-        
+
         if not os.path.exists(actual_path_to_load):
             print(f"检查点文件 {actual_path_to_load} 未找到。")
             return False
@@ -184,7 +184,7 @@ class LSTM_Predictor:
             if 'scheduler_state_dict' in checkpoint:
                  self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             if not load_best:
-                self.start_epoch = checkpoint['epoch'] + 1 
+                self.start_epoch = checkpoint['epoch'] + 1
                 self.best_val_loss = checkpoint['best_val_loss']
                 print(f"恢复训练: Epoch {self.start_epoch}, Best Val Loss: {self.best_val_loss:.4f}")
             else:
@@ -204,7 +204,7 @@ class LSTM_Predictor:
             self.model.train()
             total_loss = 0
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [训练中]", unit="batch")
-            for x_loc_batch, y_batch, x_dict_batch in pbar: 
+            for x_loc_batch, y_batch, x_dict_batch in pbar:
                 # --- TRANSPOSE 修正 ---
                 # collate_fn 现在直接返回 batch_first=True, 不再需要 transpose
                 x_loc_batch = x_loc_batch.to(self.device)
@@ -216,7 +216,7 @@ class LSTM_Predictor:
 
                 self.optimizer.zero_grad()
                 output, _, _ = self.model(
-                    x_loc_batch, x_time_batch, x_weekday_batch, 
+                    x_loc_batch, x_time_batch, x_weekday_batch,
                     x_diff_batch, x_user_batch
                 )
                 loss = self.criterion(output, y_batch)
@@ -243,15 +243,15 @@ class LSTM_Predictor:
                         x_weekday_batch = x_dict_batch['weekday'].to(self.device)
                         x_diff_batch = x_dict_batch['diff'].to(self.device)
                         x_user_batch = x_dict_batch['user'].to(self.device)
-                        
+
                         output, _, _ = self.model(
-                            x_loc_batch, x_time_batch, x_weekday_batch, 
+                            x_loc_batch, x_time_batch, x_weekday_batch,
                             x_diff_batch, x_user_batch
                         )
                         loss = self.criterion(output, y_batch)
                         total_eval_loss += loss.item()
                         eval_pbar.set_postfix(loss=f"{loss.item():.4f}")
-                
+
                 avg_eval_loss = total_eval_loss / len(eval_loader) if len(eval_loader) > 0 else float('inf')
                 print(f"Epoch {epoch+1}/{self.epochs}, Validation Loss: {avg_eval_loss:.4f}")
                 self.scheduler.step(avg_eval_loss)
@@ -270,7 +270,7 @@ class LSTM_Predictor:
                 if epochs_no_improve_early_stopping >= self.patience:
                     print(f"Early stopping triggered at epoch {epoch+1}. Best val loss: {self.best_val_loss:.4f}")
                     break
-            else: 
+            else:
                 if epoch % 5 == 0 or epoch == self.epochs -1 :
                     self.save_checkpoint(epoch, checkpoint_file_path, is_best=False)
         print("Training finished.")
@@ -290,7 +290,7 @@ class LSTM_Predictor:
                 x_user_batch = x_dict_batch['user'].to(self.device)
 
                 output, _, _ = self.model(
-                    x_loc_batch, x_time_batch, x_weekday_batch, 
+                    x_loc_batch, x_time_batch, x_weekday_batch,
                     x_diff_batch, x_user_batch
                 )
                 probabilities = torch.softmax(output, dim=1)
@@ -337,21 +337,21 @@ def get_max_user_id_and_loc_vocab_size(dataset_instance, data_root, dataset_name
             ori_data_path = os.path.join(data_root, dataset_name, city, f"dataSet_foursquare_{city}.csv")
         else:
             ori_data_path = os.path.join(data_root, dataset_name, f"dataSet_{dataset_name}.csv")
-        
+
         if os.path.exists(ori_data_path):
-            ori_df = pd.read_csv(ori_data_path) 
+            ori_df = pd.read_csv(ori_data_path)
             max_user_id_from_file = ori_df['user_id'].max()
-            num_users = int(max_user_id_from_file) + 1 
+            num_users = int(max_user_id_from_file) + 1
             print(f"从文件 {os.path.basename(ori_data_path)} 推断的最大用户ID: {max_user_id_from_file}, 用户数: {num_users}")
         else:
             print(f"警告: 原始数据集文件 {ori_data_path} 未找到。将使用默认值 {default_num_users}。")
-            num_users = default_num_users 
+            num_users = default_num_users
     except Exception as e:
         print(f"读取原始数据集文件以获取用户数时出错: {e}。将使用默认值 {default_num_users}。")
         num_users = default_num_users
 
-    if not dataset_instance.data: 
-        try: _ = dataset_instance[0] 
+    if not dataset_instance.data:
+        try: _ = dataset_instance[0]
         except Exception as e: print(f"访问数据集元素时出错: {e}"); return -1, num_users
     if not dataset_instance.data: return -1, num_users
 
@@ -387,32 +387,37 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="LSTM-based Location Prediction Model")
     parser.add_argument('--dataset', type=str, required=True, choices=['fsq', 'geolife'], help='要使用的数据集')
     parser.add_argument('--city', type=str, choices=['tky', 'nyc'], help='当数据集是 fsq 时，必须指定城市')
+    # vvvvvvvvvvvvvvvv 代码修改处 1 vvvvvvvvvvvvvvvv
+    parser.add_argument('--attention', type=str, default='true', choices=['true', 'false'], help='是否使用Attention机制 (true 或 false)')
+    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     args_cmd = parser.parse_args()
 
     class Args:
         dataset = args_cmd.dataset
         city = args_cmd.city
         embed_dims = {'loc': 64, 'time': 16, 'weekday': 16, 'diff': 16, 'user': 32}
-        hidden_size = 128      
-        num_layers = 2         
-        dropout_rate = 0.3    
-        bidirectional_lstm = False 
-        use_attention = True
-        learning_rate = 0.001 
-        weight_decay = 1e-5   
-        epochs = 150          
-        batch_size = 64       
-        patience = 20         
-        lr_scheduler_patience = 7 
-        lr_scheduler_factor = 0.1 
-        gradient_clip_value = 1.0 
-        previous_days = 7     
-        topk_acc = "1,5,10" 
-        ndcg_k_val = 10     
+        hidden_size = 128
+        num_layers = 2
+        dropout_rate = 0.3
+        bidirectional_lstm = False
+        # vvvvvvvvvvvvvvvv 代码修改处 2 vvvvvvvvvvvvvvvv
+        use_attention = (args_cmd.attention.lower() == 'true')
+        # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        learning_rate = 0.001
+        weight_decay = 1e-5
+        epochs = 150
+        batch_size = 64
+        patience = 20
+        lr_scheduler_patience = 7
+        lr_scheduler_factor = 0.1
+        gradient_clip_value = 1.0
+        previous_days = 7
+        topk_acc = "1,5,10"
+        ndcg_k_val = 10
         device = "cuda" if torch.cuda.is_available() else "cpu"
         seed = 2023
-        num_workers = 0 
-        resume_training = False 
+        num_workers = 0
+        resume_training = False
     args = Args()
 
     if args.dataset == 'fsq' and not args.city:
@@ -422,7 +427,7 @@ if __name__ == '__main__':
         dataset_specific_config = DATASET_CONFIGS[args.dataset][args.city]
     else:
         dataset_specific_config = DATASET_CONFIGS[args.dataset]
-    
+
     args.embed_dims['user'] = dataset_specific_config.get('user_embed_dim', args.embed_dims['user'])
     default_num_users_for_get_func = dataset_specific_config.get('default_num_users', 1000)
 
@@ -431,8 +436,8 @@ if __name__ == '__main__':
     args.checkpoint_dir = f"./checkpoints_lstm_target_attn/{args.dataset}{city_suffix}/pd{args.previous_days}"
     args.checkpoint_name_template = "lstm_ds-{}{}_bidir-{}_attn-{}_h-{}_l-{}_d-{}_pd-{}_ue-{}_checkpoint.pth"
     args.checkpoint_name = args.checkpoint_name_template.format(
-        args.dataset, city_suffix, args.bidirectional_lstm, args.use_attention, 
-        args.hidden_size, args.num_layers, args.dropout_rate, args.previous_days, 
+        args.dataset, city_suffix, args.bidirectional_lstm, args.use_attention,
+        args.hidden_size, args.num_layers, args.dropout_rate, args.previous_days,
         args.embed_dims['user']
     )
     acc_topk_values = [int(k_str) for k_str in args.topk_acc.split(',')]
@@ -443,7 +448,7 @@ if __name__ == '__main__':
         if k != 'checkpoint_name_template': print(f"{k}: {v}")
     print("-----------------------------------------------------------------")
     print(f"使用设备: {args.device}")
-    setup_seed(args.seed) 
+    setup_seed(args.seed)
     if not os.path.exists(args.checkpoint_dir):
         os.makedirs(args.checkpoint_dir, exist_ok=True)
     checkpoint_file_path = os.path.join(args.checkpoint_dir, args.checkpoint_name)
@@ -463,7 +468,7 @@ if __name__ == '__main__':
         if loc_vocab_size <= 0 or num_users <=0 : sys.exit(1)
         print("加载验证数据...")
         eval_dataset = sp_loc_dataset(
-            source_root=data_root_dir, dataset=args.dataset, city=args.city, data_type="validation", 
+            source_root=data_root_dir, dataset=args.dataset, city=args.city, data_type="validation",
             previous_day=args.previous_days, model_type=args.model_type_for_dataloader
         )
         print("加载测试数据...")
@@ -484,21 +489,21 @@ if __name__ == '__main__':
         loc_vocab_size=loc_vocab_size, embed_dims=args.embed_dims, hidden_size=args.hidden_size,
         num_layers=args.num_layers, dropout_rate=args.dropout_rate, learning_rate=args.learning_rate,
         epochs=args.epochs, device=args.device, patience=args.patience,
-        num_users=num_users, max_time_diff=args.previous_days, 
-        bidirectional_lstm=args.bidirectional_lstm, 
-        use_attention=args.use_attention, 
+        num_users=num_users, max_time_diff=args.previous_days,
+        bidirectional_lstm=args.bidirectional_lstm,
+        use_attention=args.use_attention,
         lr_scheduler_patience=args.lr_scheduler_patience, lr_scheduler_factor=args.lr_scheduler_factor,
         gradient_clip_value=args.gradient_clip_value,
-        weight_decay=args.weight_decay 
+        weight_decay=args.weight_decay
     )
 
     if args.resume_training:
-        predictor.load_checkpoint(checkpoint_file_path, load_best=False) 
-    
+        predictor.load_checkpoint(checkpoint_file_path, load_best=False)
+
     print("开始训练...")
-    predictor.train(train_loader, eval_loader, checkpoint_file_path=checkpoint_file_path) 
+    predictor.train(train_loader, eval_loader, checkpoint_file_path=checkpoint_file_path)
     print(f"训练结束。正在从最佳检查点加载模型进行最终评估...")
-    load_success = predictor.load_checkpoint(checkpoint_file_path, load_best=True) 
+    load_success = predictor.load_checkpoint(checkpoint_file_path, load_best=True)
     if not load_success :
          print("警告：未能加载最佳检查点。将使用当前模型状态评估。")
     print("开始预测和评估...")
@@ -506,7 +511,7 @@ if __name__ == '__main__':
 
     if not all_targets: print("没有可用于评估的目标。退出。")
     else:
-        print(f"\nLSTM 模型评估结果 (dataset={args.dataset}, city={args.city or 'N/A'}, attention={args.use_attention}):") 
+        print(f"\nLSTM 模型评估结果 (dataset={args.dataset}, city={args.city or 'N/A'}, attention={args.use_attention}):")
         all_metrics_results = calculate_all_metrics(all_preds, all_targets, acc_topk_values, args.ndcg_k_val)
         for k_val in acc_topk_values: print(f"  Accuracy@{k_val}:  {all_metrics_results.get(f'Acc@{k_val}', 0.0):.4f}")
         print(f"  F1-score (Top-1): {all_metrics_results.get('F1', 0.0):.4f}")
