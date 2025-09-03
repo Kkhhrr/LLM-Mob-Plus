@@ -79,11 +79,7 @@ class LSTMModel(nn.Module):
         time_embed = self.time_embedding(x_time)
         weekday_embed = self.weekday_embedding(x_weekday)
         diff_embed = self.diff_embedding(x_diff)
-
-        # --- USER ID 修正 ---
-        # x_user 是一个序列，我们只取第一个时间步的 user_id (因为它们都相同)
-        user_id_tensor = x_user[:, 0]
-        user_embed = self.user_embedding(user_id_tensor)
+        user_embed = self.user_embedding(x_user)
 
         combined_embed = torch.cat((loc_embed, time_embed, weekday_embed, diff_embed), dim=2)
         combined_embed = self.dropout_layer(combined_embed)
@@ -205,13 +201,11 @@ class LSTM_Predictor:
             total_loss = 0
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [训练中]", unit="batch")
             for x_loc_batch, y_batch, x_dict_batch in pbar:
-                # --- TRANSPOSE 修正 ---
-                # collate_fn 现在直接返回 batch_first=True, 不再需要 transpose
-                x_loc_batch = x_loc_batch.to(self.device)
+                x_loc_batch = x_loc_batch.transpose(0, 1).to(self.device)
                 y_batch = y_batch.to(self.device)
-                x_time_batch = x_dict_batch['time'].to(self.device)
-                x_weekday_batch = x_dict_batch['weekday'].to(self.device)
-                x_diff_batch = x_dict_batch['diff'].to(self.device)
+                x_time_batch = x_dict_batch['time'].transpose(0, 1).to(self.device)
+                x_weekday_batch = x_dict_batch['weekday'].transpose(0, 1).to(self.device)
+                x_diff_batch = x_dict_batch['diff'].transpose(0, 1).to(self.device)
                 x_user_batch = x_dict_batch['user'].to(self.device)
 
                 self.optimizer.zero_grad()
@@ -237,11 +231,11 @@ class LSTM_Predictor:
                 eval_pbar = tqdm(eval_loader, desc=f"Epoch {epoch+1}/{self.epochs} [验证中]", unit="batch")
                 with torch.no_grad():
                     for x_loc_batch, y_batch, x_dict_batch in eval_pbar:
-                        x_loc_batch = x_loc_batch.to(self.device)
+                        x_loc_batch = x_loc_batch.transpose(0, 1).to(self.device)
                         y_batch = y_batch.to(self.device)
-                        x_time_batch = x_dict_batch['time'].to(self.device)
-                        x_weekday_batch = x_dict_batch['weekday'].to(self.device)
-                        x_diff_batch = x_dict_batch['diff'].to(self.device)
+                        x_time_batch = x_dict_batch['time'].transpose(0, 1).to(self.device)
+                        x_weekday_batch = x_dict_batch['weekday'].transpose(0, 1).to(self.device)
+                        x_diff_batch = x_dict_batch['diff'].transpose(0, 1).to(self.device)
                         x_user_batch = x_dict_batch['user'].to(self.device)
 
                         output, _, _ = self.model(
@@ -282,11 +276,11 @@ class LSTM_Predictor:
         print("Starting prediction...")
         with torch.no_grad():
             for x_loc_batch, y_batch, x_dict_batch in tqdm(test_loader, desc="Predicting", unit="batch"):
-                x_loc_batch = x_loc_batch.to(self.device)
+                x_loc_batch = x_loc_batch.transpose(0, 1).to(self.device)
                 y_batch = y_batch.to(self.device)
-                x_time_batch = x_dict_batch['time'].to(self.device)
-                x_weekday_batch = x_dict_batch['weekday'].to(self.device)
-                x_diff_batch = x_dict_batch['diff'].to(self.device)
+                x_time_batch = x_dict_batch['time'].transpose(0, 1).to(self.device)
+                x_weekday_batch = x_dict_batch['weekday'].transpose(0, 1).to(self.device)
+                x_diff_batch = x_dict_batch['diff'].transpose(0, 1).to(self.device)
                 x_user_batch = x_dict_batch['user'].to(self.device)
 
                 output, _, _ = self.model(
@@ -362,9 +356,11 @@ def get_max_user_id_and_loc_vocab_size(dataset_instance, data_root, dataset_name
             if current_max_x > max_loc_id: max_loc_id = current_max_x
         if 'Y' in record and record['Y'] is not None:
             if record['Y'] > max_loc_id: max_loc_id = record['Y']
-        if 'user_X' in record and record['user_X'] is not None and len(record['user_X']) > 0:
-             current_user_id = record['user_X'][0]
-             if current_user_id > max_user_id_in_data: max_user_id_in_data = current_user_id
+        
+        if 'user_X' in record and record['user_X'] is not None:
+             current_user_id = record['user_X']
+             if current_user_id > max_user_id_in_data:
+                 max_user_id_in_data = current_user_id
 
     if num_users <= max_user_id_in_data :
         print(f"警告：数据中的最大用户ID ({max_user_id_in_data}) >= 从文件/默认推断的用户数 ({num_users-1})。将使用 {max_user_id_in_data + 1}。")
@@ -387,9 +383,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="LSTM-based Location Prediction Model")
     parser.add_argument('--dataset', type=str, required=True, choices=['fsq', 'geolife'], help='要使用的数据集')
     parser.add_argument('--city', type=str, choices=['tky', 'nyc'], help='当数据集是 fsq 时，必须指定城市')
-    # vvvvvvvvvvvvvvvv 代码修改处 1 vvvvvvvvvvvvvvvv
     parser.add_argument('--attention', type=str, default='true', choices=['true', 'false'], help='是否使用Attention机制 (true 或 false)')
-    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     args_cmd = parser.parse_args()
 
     class Args:
@@ -399,10 +393,12 @@ if __name__ == '__main__':
         hidden_size = 128
         num_layers = 2
         dropout_rate = 0.3
-        bidirectional_lstm = False
-        # vvvvvvvvvvvvvvvv 代码修改处 2 vvvvvvvvvvvvvvvv
+        
+        # MODIFIED: 此处为最新的修改
         use_attention = (args_cmd.attention.lower() == 'true')
-        # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        # 新增逻辑：让 bidirectional_lstm 的值与 use_attention 保持一致
+        bidirectional_lstm = use_attention
+        
         learning_rate = 0.001
         weight_decay = 1e-5
         epochs = 150
@@ -502,7 +498,7 @@ if __name__ == '__main__':
 
     print("开始训练...")
     predictor.train(train_loader, eval_loader, checkpoint_file_path=checkpoint_file_path)
-    print(f"训练结束。正在从最佳检查点加载模型进行最终评估...")
+    print(f"训练结束。正在从最佳检查点加载模型进行 开始评估...")
     load_success = predictor.load_checkpoint(checkpoint_file_path, load_best=True)
     if not load_success :
          print("警告：未能加载最佳检查点。将使用当前模型状态评估。")
