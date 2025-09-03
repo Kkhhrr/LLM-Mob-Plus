@@ -9,7 +9,7 @@ from tqdm import tqdm
 from utils.train import trainNet, test, get_performance_dict
 from utils.dataloader import sp_loc_dataset, collate_fn
 
-from models.MHSA import TransEncoder
+from utils.MHSA import TransEncoder
 
 
 def load_config(path):

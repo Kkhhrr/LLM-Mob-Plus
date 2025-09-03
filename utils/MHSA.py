@@ -4,8 +4,8 @@ import torch, math
 from torch import Tensor
 
 
-from models.embed import AllEmbedding
-from models.fc import FullyConnected
+from utils.embed import AllEmbedding
+from utils.fc import FullyConnected
 
 
 class TransEncoder(nn.Module):
