@@ -394,9 +394,8 @@ if __name__ == '__main__':
         num_layers = 2
         dropout_rate = 0.3
         
-        # MODIFIED: 此处为最新的修改
         use_attention = (args_cmd.attention.lower() == 'true')
-        # 新增逻辑：让 bidirectional_lstm 的值与 use_attention 保持一致
+
         bidirectional_lstm = use_attention
         
         learning_rate = 0.001

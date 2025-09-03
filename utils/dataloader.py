@@ -85,8 +85,7 @@ class sp_loc_dataset(torch.utils.data.Dataset):
         x = torch.tensor(selected["X"])
         y = torch.tensor(selected["Y"])
         
-        # --- USER ID 修正 ---
-        # 返回整个 user_X 数组，让 collate_fn 来统一处理
+
         return_dict["user"] = torch.tensor(selected["user_X"])
         
         return_dict["time"] = torch.tensor(selected["start_min_X"] // 30)
@@ -122,16 +121,11 @@ class sp_loc_dataset(torch.utils.data.Dataset):
         if self.is_individual_model:
             total_num_location = train_data.groupby("user_id")["location_id"].max() + 1
             user_dict = total_num_location.to_dict()
-            save_path = os.path.join(self.data_dir, f"loc.pk")
+            save_path = os.path.join(self.data_dir, "loc.pk")
             save_pk_file(save_path, user_dict)
         else:
             train_data, vali_data, test_data, enc = self._encode_loc(train_data, vali_data, test_data)
-            if self.dataset == "gc":
-                self.poi_data["index"] = enc.transform(self.poi_data["index"].reshape(-1, 1)) + 2
-                self.poi_data["index"] = np.squeeze(self.poi_data["index"], axis=-1)
-                idx = np.where(self.poi_data["index"] == 1)[0]
-                self.poi_data["poiValues"][idx, :, :] = np.zeros_like(self.poi_data["poiValues"][idx, :, :])
-
+        
         train_records = self._preProcessDatasets(train_data, "train")
         validation_records = self._preProcessDatasets(vali_data, "validation")
         test_records = self._preProcessDatasets(test_data, "test")
@@ -180,7 +174,7 @@ class sp_loc_dataset(torch.utils.data.Dataset):
             ).fit(df.loc[df["Dataset"] == "train", "location_id"].values.reshape(-1, 1))
             df["location_id"] = enc.transform(df["location_id"].values.reshape(-1, 1)) + 2
         return df
-
+    
     def _preProcessDatasets(self, data, dataset_type):
         valid_records = self.__getValidSequence(data)
         city_suffix = f"_{self.city}" if self.dataset == "fsq" else ""
@@ -202,7 +196,7 @@ class sp_loc_dataset(torch.utils.data.Dataset):
             save_pk_file(save_path, valid_records)
             return_data = valid_records
         return return_data
-
+    
     def __getValidSequence(self, input_df):
         valid_user_ls = applyParallel(input_df.groupby("user_id"), self.___getValidSequenceUser, n_jobs=-1)
         return valid_user_ls
@@ -217,6 +211,10 @@ class sp_loc_dataset(torch.utils.data.Dataset):
                 continue
             hist = df.iloc[:index]
             hist = hist.loc[(hist["start_day"] >= (row["start_day"] - self.previous_day))]
+
+            if hist.empty:
+                continue
+
             if not (row["id"] in self.valid_ids):
                 continue
             if self.day_selection != "default":
@@ -227,7 +225,7 @@ class sp_loc_dataset(torch.utils.data.Dataset):
             
             data_dict = {}
             data_dict["X"] = hist["location_id"].values
-            data_dict["user_X"] = hist["user_id"].values
+            data_dict["user_X"] = hist["user_id"].values[0]
             data_dict["weekday_X"] = hist["weekday"].values
             data_dict["start_min_X"] = hist["start_min"].values
             if 'duration' in hist.columns:
@@ -262,43 +260,33 @@ def applyParallel(dfGrouped, func, n_jobs, print_progress=True, **kwargs):
     return df_ls
 
 def collate_fn(batch):
+
     x_batch, y_batch = [], []
-    x_dict_batch = {}
-    if batch:
-        for key in batch[0][-1]:
-            x_dict_batch[key] = []
+
+    if not batch:
+        return torch.tensor([]), torch.tensor([]), {}
+
+    x_dict_batch = {"len": []}
+    for key in batch[0][-1]:
+        x_dict_batch[key] = []
 
     for src_sample, tgt_sample, return_dict in batch:
         x_batch.append(src_sample)
         y_batch.append(tgt_sample)
-        for key, value in return_dict.items():
-            x_dict_batch[key].append(value)
+
+        x_dict_batch["len"].append(len(src_sample))
+        for key in return_dict:
+            x_dict_batch[key].append(return_dict[key])
+
+    x_batch = pad_sequence(x_batch, padding_value=0)
+    y_batch = torch.tensor(y_batch, dtype=torch.int64)
+
+    x_dict_batch["user"] = torch.tensor(x_dict_batch["user"], dtype=torch.int64)
+    x_dict_batch["len"] = torch.tensor(x_dict_batch["len"], dtype=torch.int64)
     
-    # --- COLLATE 修正: 统一处理为 batch_first=True ---
-    x_batch_padded = pad_sequence(x_batch, batch_first=True, padding_value=0)
-    y_batch_tensor = torch.tensor(y_batch, dtype=torch.int64)
+    for key in x_dict_batch:
+        if key in ["user", "len", "poi"]: 
+            continue
+        x_dict_batch[key] = pad_sequence(x_dict_batch[key], padding_value=0)
 
-    for key, value_list in x_dict_batch.items():
-        # 将列表中的每个 tensor/array 转换为 tensor
-        tensor_list = [torch.tensor(v, dtype=torch.int64) for v in value_list]
-        x_dict_batch[key] = pad_sequence(tensor_list, batch_first=True, padding_value=0)
-
-    return x_batch_padded, y_batch_tensor, x_dict_batch
-
-
-def test_dataloader(train_loader):
-    batch_size = train_loader.batch_size
-    x_shape = 0
-    x_dict_shape = 0
-    for batch_idx, (x, y, x_dict) in tqdm(enumerate(train_loader)):
-        x_shape += x.shape[0]
-        x_dict_shape += x_dict["duration"].shape[0]
-    print(x_shape / len(train_loader))
-    print(x_dict_shape / len(train_loader))
-
-if __name__ == "__main__":
-    source_root = r"./data/"
-    dataset_train = sp_loc_dataset(source_root, dataset="fsq", city="tky", data_type="train", previous_day=7)
-    kwds_train = {"shuffle": False, "num_workers": 0, "batch_size": 2}
-    train_loader = torch.utils.data.DataLoader(dataset_train, collate_fn=collate_fn, **kwds_train)
-    test_dataloader(train_loader)
+    return x_batch, y_batch, x_dict_batch
