@@ -1187,13 +1187,13 @@ if __name__ == '__main__':
         args.m1_weekday_category_num = 7
         args.m1_tid_num = 48
 
-        print("Geolife 参数已修改，与 mobtcast2.py 的设置对齐，并已启用坐标辅助损失。")
+        print("已修改为Geolife 参数，并已启用坐标辅助损失。")
         
         data_root_dir = os.path.join(project_root_dir, 'data', args.dataset)
         dataset_name_for_loader = args.dataset
         source_filename_prefix = args.dataset
         args.model_type_for_dataloader = f"mobtcast_{dataset_name_for_loader}_opt_pd{args.previous_days}_dur{args.use_duration_feature}"
-        args.checkpoint_dir = f"./checkpoints_mobtcast_optimized/{dataset_name_for_loader}/obs{args.obs_len}_hid{args.hidden_size}_dur{args.use_duration_feature}"
+        args.checkpoint_dir = f"./checkpoints_mobtcast_geolife/{dataset_name_for_loader}/obs{args.obs_len}_hid{args.hidden_size}_dur{args.use_duration_feature}"
         args.checkpoint_name = "geolife_model_ckpt.pth"
         checkpoint_file_path = os.path.join(args.checkpoint_dir, args.checkpoint_name)
         if not os.path.exists(args.checkpoint_dir): os.makedirs(args.checkpoint_dir, exist_ok=True)
