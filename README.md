@@ -53,7 +53,7 @@
 
 - **MHSA**
 
-  所需要的数据文件同**Markov、LSTM(-attn)、Mobtcast**，在`models/MHSA`目录下创建一个名为`data`的新文件夹，并将`data`路径下`geolife.py`和`foursquare.py`所生成的数据文件复制粘贴进去即可。
+  所需要的数据文件同**Markov、LSTM(-attn)、Mobtcast**，在`models/MHSA`的`geolife`和`foursquare`目录下分别创建一个名为`data`的新文件夹，并将`data`路径下`geolife.py`和`foursquare.py`所生成的数据文件分别复制粘贴进去即可。
 
 - **LLM-Mob**
 
@@ -116,7 +116,7 @@
 - **Geolife：**
 
   ```shell
-  python geolife/main.py geolife/config/geolife/transformer.yml
+  python main.py config/geolife/transformer.yml
   ```
 
 - **Foursquare：**
@@ -124,7 +124,7 @@
   只需将命令中的 [city_name] 替换为 nyc 或 tky 即可。
 
   ```shell
-  python foursquare/main.py foursquare/config/foursquare/transformer_[city_name].yml
+  python main.py config/foursquare/transformer_[city_name].yml
   ```
 
 #### DeepMove 模型

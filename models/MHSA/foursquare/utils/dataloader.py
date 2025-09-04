@@ -93,7 +93,7 @@ class sp_loc_dataset(torch.utils.data.Dataset):
         self.valid_ids = load_pk_file(os.path.join(self.root, f"valid_ids_{self.dataset}.pk"))
 
         # the location data
-        ori_data = pd.read_csv(os.path.join(self.root, f"dataset_{self.dataset}.csv"))
+        ori_data = pd.read_csv(os.path.join(self.root, f"dataSet_{self.dataset}.csv"))
         ori_data.sort_values(by=["user_id", "start_day", "start_min"], inplace=True)
 
         # classify the datasets, user dependent 0.6, 0.2, 0.2
