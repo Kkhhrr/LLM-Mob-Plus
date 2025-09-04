@@ -124,7 +124,7 @@
   只需将命令中的 [city_name] 替换为 nyc 或 tky 即可。
 
   ```shell
-  python main.py config/foursquare/transformer_[city_name].yml
+  python main.py config/foursquare/[city_name]_transformer.yml
   ```
 
 #### DeepMove 模型
@@ -132,7 +132,7 @@
 - **Geolife：**
 
   ```shell
-  python main.py --model_mode=attn_avg_long_user --data_name = geolife
+  python main.py --model_mode=attn_avg_long_user --data_name geolife
   ```
 
 - **Foursquare：**
@@ -140,7 +140,7 @@
   只需将命令中的 `[city_name]` 替换为 nyc 或 tky 即可。
 
   ```shell
-  python main.py --model_mode=attn_avg_long_user --data_name = foursquare_[city_name]
+  python main.py --model_mode=attn_avg_long_user --data_name foursquare_[city_name]
   ```
 
 #### LLM-Mob 模型
