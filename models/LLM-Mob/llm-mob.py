@@ -643,8 +643,16 @@ def main():
     # 根据选择自动生成输出和日志目录
     # 示例: "output/fsq/nyc/top1_wot"
     experiment_name = f"top{top_k}" + ("_wt" if with_time else "_wot")
-    output_dir = f"output/{dataname}/{sub_dataname}/{experiment_name}"
-    log_dir = f"logs/{dataname}/{sub_dataname}/{experiment_name}"
+    experiment_name = f"top{top_k}" + ("_wt" if with_time else "_wot")
+
+    if dataname == 'fsq':
+        # 示例: "output/fsq/nyc/top1_wot"
+        output_dir = f"output/{dataname}/{sub_dataname}/{experiment_name}"
+        log_dir = f"logs/{dataname}/{sub_dataname}/{experiment_name}"
+    else:
+        # 示例: "output/geolife/top1_wot"
+        output_dir = f"output/{dataname}/{experiment_name}"
+        log_dir = f"logs/{dataname}/{experiment_name}"
 
     # --- 程序执行 ---
     # 根据选择加载对应的数据集
