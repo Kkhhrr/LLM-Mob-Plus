@@ -146,3 +146,19 @@
 #### LLM-Mob 模型
 
   在`llm-mob.py`文件中的`main`函数中根据注释修改相应参数运行即可。
+
+---
+
+## 实验结果
+
+以下为各基线模型在 **Gowalla-CA** 和 **Foursquare (NYC & TKY)** 数据集上的性能对比（评估指标示例：Acc@1 / MRR）：
+
+| Model | Geolife (Acc@1) | Geolife (MRR) | FSQ-NYC (Acc@1) | FSQ-NYC (MRR) | FSQ-TKY (Acc@1) | FSQ-TKY (MRR) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Markov** | - | - | - | - | - | - |
+| **Mobtcast** | - | - | - | - | - | - |
+| **LSTM** | - | - | - | - | - | - |
+| **LSTM-attn**| - | - | - | - | - | - |
+| **MHSA** | - | - | - | - | - | - |
+| **DeepMove** | - | - | - | - | - | - |
+| **LLM-Mob** | - | - | - | - | - | - |
